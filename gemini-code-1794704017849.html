@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>MOONGLISH: El Ascenso Educativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root { --moon-gold: #f6ad55; --earth-cyan: #38bdf8; --space-dark: #03050a; }
+    * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+    input, button { user-select: text; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100dvh; min-height: 100%;
+      overflow: hidden; background-color: var(--space-dark);
+      font-family: 'Exo 2', sans-serif; color: #f8fafc; overscroll-behavior: none;
+    }
+    .font-space { font-family: 'Orbitron', sans-serif; }
+    .is-hidden { display: none !important; }
+    #game-viewport {
+      position: relative; width: 100vw; height: 100dvh; overflow: hidden;
+      background: radial-gradient(ellipse at 50% 100%, #091326 0%, #03050a 72%);
+    }
+    #space-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    #camera-world {
+      position: absolute; left: 0; bottom: 0; width: 100%; height: 100%;
+      z-index: 5; will-change: transform; transform-origin: 50% 100%;
+    }
+    #moon-body {
+      position: absolute; left: 50%; width: 240px; height: 240px; margin-left: -120px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 32%, #fffbeb 0%, #fde68a 32%, #d97706 78%, #78350f 100%);
+      box-shadow: 0 0 60px rgba(251,191,36,0.55), 0 0 130px rgba(245,158,11,0.25), inset -28px -22px 45px rgba(69,26,3,0.65);
+      z-index: 8; pointer-events: none;
+    }
+    #moon-body::before {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      background-image:
+        radial-gradient(circle at 28% 35%, rgba(146,64,14,0.28) 0%, rgba(146,64,14,0.28) 12%, transparent 14%),
+        radial-gradient(circle at 62% 28%, rgba(146,64,14,0.22) 0%, rgba(146,64,14,0.22) 8%, transparent 10%),
+        radial-gradient(circle at 55% 64%, rgba(146,64,14,0.25) 0%, rgba(146,64,14,0.25) 15%, transparent 17%),
+        radial-gradient(circle at 32% 70%, rgba(146,64,14,0.18) 0%, rgba(146,64,14,0.18) 6%, transparent 8%);
+    }
+    #moon-landing-beacon {
+      position: absolute; left: 50%; bottom: -24px; transform: translateX(-50%);
+      white-space: nowrap; font-size: 11px; letter-spacing: 0.24em;
+      color: #fde68a; text-shadow: 0 0 10px rgba(251,191,36,0.85);
+    }
+    #earth-horizon {
+      position: absolute; left: 50%; bottom: -2460px; width: 2600px; height: 2600px; margin-left: -1300px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 4%, #93c5fd 0%, #38bdf8 2.8%, #0284c7 6.5%, #0f172a 15%, #020617 30%);
+      box-shadow: 0 -12px 55px rgba(56,189,248,0.45), 0 -40px 120px rgba(14,165,233,0.25), inset 0 28px 65px rgba(224,242,254,0.75);
+      z-index: 6; pointer-events: none; overflow: hidden;
+    }
+    #earth-horizon::before {
+      content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 1400px; height: 260px;
+      background:
+        radial-gradient(ellipse at 36% 18%, rgba(34,197,94,0.34) 0%, rgba(21,128,61,0.18) 38%, transparent 65%),
+        radial-gradient(ellipse at 64% 22%, rgba(16,185,129,0.30) 0%, rgba(4,120,87,0.15) 35%, transparent 60%),
+        radial-gradient(ellipse at 50% 12%, rgba(255,255,255,0.48) 0%, rgba(224,242,254,0.2) 45%, transparent 72%);
+      filter: blur(6px); pointer-events: none;
+    }
+    #earth-horizon::after {
+      content: ''; position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: 1100px; height: 140px;
+      background:
+        radial-gradient(ellipse at 44% 16%, rgba(255,255,255,0.55) 0%, transparent 45%),
+        radial-gradient(ellipse at 58% 14%, rgba(255,255,255,0.42) 0%, transparent 42%),
+        radial-gradient(ellipse at 50% 8%, rgba(186,230,253,0.5) 0%, transparent 68%);
+      filter: blur(4px); pointer-events: none;
+    }
+    #spacecraft-rig {
+      position: absolute; left: 50%; bottom: 118px; width: 140px; height: 150px; margin-left: -70px;
+      z-index: 15; pointer-events: none; will-change: transform, opacity; transition: opacity 0.4s ease;
+    }
+    #ship-body-wrapper {
+      position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      animation: shipHover 2.8s ease-in-out infinite;
+    }
+    #ship-body-wrapper.thrusting { animation: shipShake 0.08s linear infinite; }
+    @keyframes shipHover { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+    @keyframes shipShake {
+      0% { transform: translate(-1.5px, 1px); } 25% { transform: translate(1.5px, -1px); }
+      50% { transform: translate(-1px, -1.5px); } 75% { transform: translate(1px, 1.5px); }
+      100% { transform: translate(0px, 0px); }
+    }
+    #thruster-plume {
+      position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%) scaleY(0.45);
+      transform-origin: top center; width: 24px; height: 54px;
+      background: linear-gradient(to bottom, #ffffff 0%, #fde047 30%, #f97316 72%, rgba(239,68,68,0) 100%);
+      border-radius: 50% 50% 50% 50% / 20% 20% 80% 80%; filter: blur(1.5px); opacity: 0.78;
+      transition: transform 0.25s ease, opacity 0.25s ease; z-index: 1;
+    }
+    #thruster-plume.boost {
+      transform: translateX(-50%) scaleY(1.85) scaleX(1.35); opacity: 1;
+      filter: blur(2px) drop-shadow(0 0 18px #f97316);
+    }
+    #astronaut-floater {
+      position: absolute; left: -34px; top: 42px; width: 34px; height: 44px;
+      animation: astroFloat 3.6s ease-in-out infinite; filter: drop-shadow(0 0 8px rgba(56,189,248,0.55));
+    }
+    @keyframes astroFloat { 0%, 100% { transform: translate(0, 0) rotate(-6deg); } 50% { transform: translate(-5px, -9px) rotate(6deg); } }
+    .moon-action-btn {
+      background: linear-gradient(135deg, rgba(246,173,85,0.16) 0%, rgba(234,88,12,0.22) 100%);
+      border: 1.5px solid rgba(246,173,85,0.65);
+      box-shadow: 0 0 22px rgba(246,173,85,0.2), inset 0 0 12px rgba(246,173,85,0.12);
+      transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .moon-action-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(246,173,85,0.32) 0%, rgba(234,88,12,0.38) 100%);
+      border-color: #fde68a; box-shadow: 0 0 32px rgba(251,191,36,0.45), inset 0 0 16px rgba(251,191,36,0.25);
+      transform: translateY(-2px);
+    }
+    .moon-action-btn:active:not(:disabled) { transform: translateY(0px) scale(0.98); }
+    .ship-option { border: 1.5px solid rgba(148,163,184,0.25); background: rgba(15,23,42,0.55); transition: all 0.2s ease; }
+    .ship-option:hover { border-color: rgba(56,189,248,0.6); background: rgba(30,41,59,0.75); }
+    .ship-option.selected { border-color: #fbbf24; background: rgba(245,158,11,0.16); box-shadow: 0 0 16px rgba(251,191,36,0.35); transform: translateY(-2px); }
+    .command-capsule {
+      background: rgba(6,11,25,0.84); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(56,189,248,0.35); box-shadow: 0 18px 50px rgba(0,0,0,0.72), 0 0 28px rgba(56,189,248,0.14);
+    }
+    .command-capsule.valid-glow { border-color: #34d399; box-shadow: 0 0 36px rgba(52,211,153,0.42); }
+    .command-capsule.invalid-shake { border-color: #f87171; box-shadow: 0 0 32px rgba(248,113,113,0.4); animation: capsuleShake 0.36s ease; }
+    @keyframes capsuleShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+
+    /* Animación destacada del puntaje ganado */
+    @keyframes scoreBurstPop {
+      0% { opacity: 0; transform: translate(-50%, 24px) scale(0.65); }
+      18% { opacity: 1; transform: translate(-50%, -6px) scale(1.08); }
+      32% { opacity: 1; transform: translate(-50%, 0px) scale(1); }
+      82% { opacity: 1; transform: translate(-50%, -14px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -32px) scale(0.95); }
+    }
+    .score-burst-animate {
+      animation: scoreBurstPop 1.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes timerPulseUrgent {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .timer-urgent {
+      animation: timerPulseUrgent 0.6s ease-in-out infinite;
+    }
+
+    .debrief-panel {
+      background: rgba(5,9,20,0.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(251,191,36,0.35); box-shadow: 0 24px 64px rgba(0,0,0,0.85);
+    }
+    .custom-scroll::-webkit-scrollbar { width: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(15,23,42,0.4); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(246,173,85,0.45); border-radius: 9999px; }
+    @media (max-width: 640px) {
+      #moon-body { width: 176px; height: 176px; margin-left: -88px; }
+      #spacecraft-rig { bottom: 92px; transform: scale(0.84); transform-origin: center bottom; }
+      #earth-horizon { bottom: -2490px; }
+      #hud-top { padding-top: max(10px, env(safe-area-inset-top)); padding-left: 12px; padding-right: 12px; }
+      #btn-mute { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); right: 12px; padding: 7px 11px; font-size: 10px; }
+      #btn-share-game { top: auto; bottom: max(14px, env(safe-area-inset-bottom)); left: 12px; padding: 7px 11px; font-size: 10px; }
+      #view-start { padding-top: 56px; padding-bottom: 54px; }
+      #view-play { padding-top: 66px; padding-bottom: max(54px, env(safe-area-inset-bottom)); }
+      .ship-option { min-height: 54px; }
+    }
+    body.keyboard-open #question-header { transform: translateY(-6px) scale(0.92); transform-origin: top center; }
+    body.keyboard-open #view-play { padding-top: 58px; padding-bottom: 10px; }
+    body.keyboard-open #btn-mute, body.keyboard-open #btn-share-game { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="game-viewport">
+    <canvas id="space-canvas"></canvas>
+
+    <div id="camera-world">
+      <div id="moon-body">
+        <div id="moon-landing-beacon" class="font-space font-bold">LUNAR TARGET · 3,844 M</div>
+      </div>
+
+      <div id="antizoom-milestones" class="is-hidden absolute inset-0 pointer-events-none z-20"></div>
+
+      <div id="spacecraft-rig">
+        <div id="astronaut-floater" title="Cadete Espacial">
+          <svg viewBox="0 0 64 80" class="w-full h-full">
+            <path d="M46 46 Q62 52 64 38" fill="none" stroke="rgba(186,230,253,0.65)" stroke-width="2" stroke-dasharray="3 2"/>
+            <rect x="16" y="26" width="32" height="26" rx="6" fill="#94a3b8"/>
+            <rect x="20" y="28" width="24" height="26" rx="8" fill="#f8fafc"/>
+            <rect x="21" y="50" width="9" height="16" rx="4" fill="#e2e8f0" transform="rotate(8 21 50)"/>
+            <rect x="34" y="50" width="9" height="16" rx="4" fill="#e2e8f0" transform="rotate(-10 34 50)"/>
+            <rect x="10" y="30" width="12" height="8" rx="4" fill="#f1f5f9" transform="rotate(-24 10 30)"/>
+            <rect x="42" y="30" width="12" height="8" rx="4" fill="#f1f5f9" transform="rotate(20 42 30)"/>
+            <circle cx="32" cy="18" r="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+            <ellipse cx="33" cy="18" rx="10" ry="8" fill="#0f172a"/>
+            <path d="M26 14 Q32 11 38 14" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div id="ship-body-wrapper">
+          <div id="thruster-plume"></div>
+          <div id="ship-svg-container" class="relative z-10 w-24 h-28 flex items-center justify-center"></div>
+        </div>
+      </div>
+
+      <div id="earth-horizon"></div>
+    </div>
+
+    <!-- POPUP CENTRAL DESTACADO DE PUNTAJE AL ACERTAR -->
+    <div id="score-burst-overlay" class="is-hidden fixed left-1/2 top-[38%] z-50 pointer-events-none">
+      <div id="score-burst-card" class="px-6 py-3.5 rounded-2xl bg-slate-950/92 backdrop-blur-xl border-2 border-amber-400 shadow-[0_0_45px_rgba(251,191,36,0.65)] text-center">
+        <div id="score-burst-tier" class="font-space text-[10px] sm:text-xs uppercase tracking-[0.26em] text-emerald-300 font-bold">
+          SUPERNOVA VOCABULARY!
+        </div>
+        <div id="score-burst-meters" class="font-space text-3xl sm:text-5xl font-black text-amber-300 drop-shadow-[0_0_16px_rgba(251,191,36,0.85)] mt-0.5">
+          +564 M
+        </div>
+        <div id="score-burst-pts" class="font-space text-xs sm:text-sm font-bold text-sky-200 mt-1">
+          +24 PTS · COMBUSTIBLE CARGADO
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD SUPERIOR -->
+    <header id="hud-top" class="fixed top-0 left-0 right-0 z-40 px-4 sm:px-8 pt-3 sm:pt-4 flex items-center justify-between pointer-events-none">
+      <div class="flex flex-col gap-1 pointer-events-auto">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#fbbf24]"></span>
+          <span class="font-space text-xs sm:text-sm tracking-[0.22em] text-amber-200/90 font-bold">MOONGLISH</span>
+        </div>
+        <div id="fuel-cells-bar" class="is-hidden flex items-center gap-1.5 mt-1" title="Celdas de Combustible (7 Preguntas)"></div>
+      </div>
+
+      <!-- Centro: Altitud + Temporizador de 20s -->
+      <div id="hud-altitude-box" class="is-hidden flex items-center gap-3 sm:gap-5">
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] uppercase tracking-[0.24em] text-sky-300/80 font-semibold">Altitud</span>
+          <div class="flex items-baseline gap-1">
+            <span id="hud-altitude-val" class="font-space text-base sm:text-2xl font-black text-white tracking-wider">0</span>
+            <span class="font-space text-[10px] sm:text-xs text-amber-300 font-bold">/ 3,844 M</span>
+          </div>
+          <div class="w-24 sm:w-40 h-1.5 bg-slate-800/80 rounded-full overflow-hidden mt-1 border border-slate-700/70">
+            <div id="hud-progress-fill" class="h-full bg-gradient-to-r from-sky-400 via-amber-300 to-amber-500 transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Cronómetro de Ronda -->
+        <div id="hud-timer-box" class="flex flex-col items-center px-2.5 py-1 rounded-lg bg-slate-900/85 border border-sky-400/40">
+          <span class="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold">Tiempo</span>
+          <span id="hud-timer-val" class="font-space text-base sm:text-xl font-black text-sky-300 leading-tight">20s</span>
+          <div class="w-12 sm:w-16 h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+            <div id="hud-timer-bar" class="h-full bg-sky-400 transition-all duration-200" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+        <div id="hud-best-badge" class="is-hidden flex flex-col items-end px-3 py-1 rounded-lg bg-slate-900/65 border border-slate-700/60">
+          <span class="text-[9px] uppercase tracking-widest text-slate-400">Récord</span>
+          <span id="hud-best-val" class="font-space text-xs font-bold text-amber-300">0 M</span>
+        </div>
+        <div id="hud-score-badge" class="is-hidden flex flex-col items-end px-3 py-1 rounded-lg bg-slate-900/75 border border-sky-500/35">
+          <span class="text-[9px] uppercase tracking-widest text-sky-300">Propulsión</span>
+          <span id="hud-score-val" class="font-space text-xs sm:text-sm font-bold text-white">0 PTS</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- PANTALLA 1: INICIO Y SELECCIÓN DE NAVE -->
+    <section id="view-start" class="relative z-30 w-full h-full flex flex-col justify-between items-center px-4 pt-16 sm:pt-20 pb-8 sm:pb-12">
+      <div class="text-center max-w-2xl mx-auto mt-1 sm:mt-4">
+        <h1 class="font-space text-4xl sm:text-6xl font-black tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-400 drop-shadow-[0_4px_24px_rgba(251,191,36,0.35)]">
+          MOONGLISH
+        </h1>
+        <p class="mt-2 text-xs sm:text-sm text-sky-200/85 max-w-md mx-auto leading-relaxed">
+          Responde <strong class="text-amber-300">7 desafíos de vocabulario en inglés</strong> antes de que se agote el tiempo (20s por ronda) para impulsar tu nave hasta la Luna.
+        </p>
+      </div>
+
+      <div class="w-full max-w-xl mx-auto mt-auto mb-4">
+        <div class="bg-slate-950/75 backdrop-blur-md border border-slate-700/70 rounded-xl p-3 shadow-2xl">
+          <div class="flex items-center justify-between mb-2 px-1">
+            <span class="text-[11px] uppercase tracking-[0.2em] text-slate-300 font-semibold">
+              Nave: <strong id="selected-ship-name" class="text-amber-300">Apollo Lander</strong>
+            </span>
+            <button id="btn-rotate-ship" type="button" class="text-[11px] text-amber-300 hover:text-amber-200 font-space font-semibold cursor-pointer">
+              ↻ Cambiar Nave
+            </button>
+          </div>
+          <div id="ship-grid" class="grid grid-cols-4 sm:grid-cols-7 gap-1.5"></div>
+        </div>
+      </div>
+
+      <div class="w-full max-w-xl mb-1">
+        <button id="btn-launch-mission" type="button" class="moon-action-btn w-full py-3.5 sm:py-4 px-6 rounded-md font-space font-bold text-sm sm:text-base tracking-[0.32em] text-white uppercase cursor-pointer">
+          ▲ &nbsp; L I F T O F F &nbsp; ▲
+        </button>
+      </div>
+    </section>
+
+    <!-- PANTALLA 2: PREGUNTA ACTIVA -->
+    <section id="view-play" class="is-hidden relative z-30 w-full h-full flex flex-col justify-between items-center pt-20 pb-6 px-4">
+      <div id="question-header" class="text-center max-w-xl mx-auto space-y-1.5 transition-opacity duration-300">
+        <p class="font-space text-[10px] uppercase tracking-[0.24em] text-slate-400 font-bold">
+          FUEL CELL <span id="q-index-label">1</span> OF 7 · <span id="q-oa-label" class="text-amber-300/85">OA 1</span>
+        </p>
+        <h2 id="q-title-en" class="font-space text-2xl sm:text-4xl font-bold text-white tracking-tight leading-tight drop-shadow">
+          Name a wild animal
+        </h2>
+        <p id="q-subtitle-es" class="text-xs sm:text-sm text-slate-300/90">
+          Escribe en inglés el nombre de un animal salvaje.
+        </p>
+        <div id="radar-alert" class="is-hidden mt-2 inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-sky-950/85 border border-sky-400/40 text-xs text-sky-200">
+          <span id="radar-alert-text">✓ Respuesta válida en inglés</span>
+        </div>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <div class="w-full max-w-xl mx-auto">
+        <div id="feedback-banner" class="is-hidden mb-2.5 px-4 py-2.5 rounded-lg text-center text-sm sm:text-base font-bold transition-all shadow-lg"></div>
+
+        <form id="answer-form" class="command-capsule rounded-xl p-2 sm:p-2.5 flex items-center gap-2" autocomplete="off">
+          <input
+            id="word-input"
+            type="text"
+            inputmode="text"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="Type your answer in English..."
+            class="flex-1 bg-transparent px-3 py-2.5 text-base sm:text-lg text-white placeholder-slate-400 focus:outline-none font-medium"
+          />
+          <button
+            id="btn-ignite"
+            type="submit"
+            class="moon-action-btn px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-space font-bold text-xs sm:text-sm tracking-[0.18em] text-amber-100 uppercase shrink-0 cursor-pointer"
+          >
+            IGNITE ▲
+          </button>
+        </form>
+
+        <div class="mt-2 flex items-center justify-between px-1 text-[11px] text-slate-400">
+          <span>💡 Palabras más específicas o avanzadas dan <strong class="text-amber-300">mayor impulso</strong></span>
+          <button id="btn-skip-q" type="button" class="text-slate-400 hover:text-slate-200 underline underline-offset-2 cursor-pointer">
+            Saltar (0 m)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 3: ANTIZOOM Y RESUMEN FINAL -->
+    <section id="view-summary" class="is-hidden relative z-30 w-full h-full flex flex-col justify-between items-center pt-16 pb-6 px-4">
+      <div class="text-center max-w-xl mx-auto">
+        <span id="summary-badge" class="inline-block px-3 py-0.5 rounded-full text-[10px] font-space uppercase tracking-[0.24em] bg-amber-500/20 border border-amber-400/50 text-amber-200 mb-1">
+          TELEMETRÍA DE VUELO COMPLETADA
+        </span>
+        <h2 id="summary-headline" class="font-space text-2xl sm:text-4xl font-black text-white tracking-wide">
+          ¡ÓRBITA ALCANZADA!
+        </h2>
+        <p id="summary-subline" class="text-xs sm:text-sm text-sky-200/90 mt-1">
+          Observa en el mapa estelar la distancia recorrida entre la Tierra y la Luna.
+        </p>
+      </div>
+
+      <div class="debrief-panel w-full max-w-xl rounded-2xl p-4 sm:p-5 mt-auto">
+        <div class="grid grid-cols-3 gap-2 text-center pb-3 mb-3 border-b border-slate-700/70">
+          <div>
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">Altitud Final</div>
+            <div id="sum-altitude" class="font-space text-base sm:text-xl font-black text-amber-300">0 M</div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">Progreso Lunar</div>
+            <div id="sum-percent" class="font-space text-base sm:text-xl font-black text-sky-300">0%</div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase tracking-wider text-slate-400">Rango Cadete</div>
+            <div id="sum-rank" class="font-space text-xs sm:text-sm font-bold text-emerald-300 mt-1">EXPLORER</div>
+          </div>
+        </div>
+
+        <div id="sum-log-list" class="max-h-36 sm:max-h-44 overflow-y-auto custom-scroll space-y-1.5 pr-1 mb-4"></div>
+
+        <div class="flex flex-col sm:flex-row gap-2.5">
+          <button id="btn-play-again" type="button" class="moon-action-btn flex-1 py-3 px-5 rounded-lg font-space font-bold text-xs sm:text-sm tracking-[0.2em] text-white uppercase cursor-pointer">
+            ▲ NUEVO LANZAMIENTO ▲
+          </button>
+          <button id="btn-back-hangar" type="button" class="py-3 px-4 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600/70 font-space font-semibold text-xs tracking-wider text-slate-200 uppercase cursor-pointer">
+            Cambiar Nave
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <button id="btn-share-game" type="button" title="Copiar enlace del juego para compartir" class="fixed top-3 left-3 sm:top-4 sm:left-44 z-50 px-2.5 py-1.5 rounded-lg bg-slate-900/75 hover:bg-slate-800 border border-sky-500/40 text-xs text-sky-200 font-space cursor-pointer flex items-center gap-1.5">
+      <span id="share-icon">🔗</span>
+      <span id="share-label" class="hidden sm:inline text-[10px] tracking-wider">SHARE</span>
+    </button>
+
+    <button id="btn-mute" type="button" title="Activar/Silenciar efectos de sonido" class="fixed top-3 right-3 sm:top-4 sm:right-4 z-50 px-2.5 py-1.5 rounded-lg bg-slate-900/75 hover:bg-slate-800 border border-slate-700/70 text-xs text-slate-300 font-space cursor-pointer">
+      🔊 SFX
+    </button>
+  </div>
+
+  <script>
+    const SPACESHIPS = [
+      { id: 'apollo', name: 'Apollo Lander', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_12px_rgba(251,191,36,0.45)]"><path d="M25 82 L12 102 M75 82 L88 102 M18 95 L32 82 M82 95 L68 82" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/><rect x="6" y="100" width="14" height="4" rx="2" fill="#f59e0b"/><rect x="80" y="100" width="14" height="4" rx="2" fill="#f59e0b"/><polygon points="34,82 66,82 60,94 40,94" fill="#475569"/><rect x="24" y="54" width="52" height="28" rx="6" fill="#d97706" stroke="#fbbf24" stroke-width="2"/><polygon points="30,54 70,54 62,24 38,24" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/><polygon points="40,34 60,34 57,46 43,46" fill="#0f172a"/><line x1="50" y1="24" x2="50" y2="8" stroke="#e2e8f0" stroke-width="2.5"/><circle cx="50" cy="7" r="3" fill="#ef4444"/></svg>` },
+      { id: 'starliner', name: 'Starliner Mk-IV', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_12px_rgba(56,189,248,0.55)]"><polygon points="50,6 70,42 66,86 34,86 30,42" fill="#f8fafc" stroke="#38bdf8" stroke-width="2"/><polygon points="30,56 12,86 34,82" fill="#0284c7"/><polygon points="70,56 88,86 66,82" fill="#0284c7"/><circle cx="50" cy="42" r="10" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5"/><rect x="38" y="86" width="24" height="10" rx="2" fill="#334155"/><path d="M50 6 L58 22 L42 22 Z" fill="#ef4444"/></svg>` },
+      { id: 'crimson', name: 'Crimson Falcon', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_12px_rgba(248,113,113,0.5)]"><path d="M50 6 C66 28 70 60 66 86 L34 86 C30 60 34 28 50 6 Z" fill="#dc2626" stroke="#fca5a5" stroke-width="2"/><polygon points="32,50 10,88 34,80" fill="#991b1b"/><polygon points="68,50 90,88 66,80" fill="#991b1b"/><ellipse cx="50" cy="44" rx="8" ry="13" fill="#fef08a" stroke="#7f1d1d" stroke-width="2"/><rect x="40" y="86" width="20" height="9" fill="#1e293b"/></svg>` },
+      { id: 'emerald', name: 'Emerald Orbiter', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_12px_rgba(52,211,153,0.5)]"><polygon points="50,8 68,38 68,84 32,84 32,38" fill="#10b981" stroke="#a7f3d0" stroke-width="2"/><rect x="10" y="54" width="22" height="14" rx="2" fill="#1e3a8a" stroke="#60a5fa" stroke-width="1.5"/><rect x="68" y="54" width="22" height="14" rx="2" fill="#1e3a8a" stroke="#60a5fa" stroke-width="1.5"/><circle cx="50" cy="38" r="9" fill="#064e3b" stroke="#6ee7b7" stroke-width="2"/><polygon points="36,84 64,84 58,95 42,95" fill="#334155"/></svg>` },
+      { id: 'ufo', name: 'Andromeda Saucer', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_14px_rgba(192,132,252,0.6)]"><path d="M30 48 C30 26 70 26 70 48 Z" fill="#38bdf8" opacity="0.85" stroke="#e0f2fe" stroke-width="2"/><ellipse cx="50" cy="54" rx="42" ry="14" fill="#7e22ce" stroke="#d8b4fe" stroke-width="2"/><circle cx="24" cy="54" r="3" fill="#fde047"/><circle cx="41" cy="57" r="3" fill="#fde047"/><circle cx="59" cy="57" r="3" fill="#fde047"/><circle cx="76" cy="54" r="3" fill="#fde047"/><ellipse cx="50" cy="68" rx="18" ry="5" fill="#4c1d95"/></svg>` },
+      { id: 'shuttle', name: 'Atlantis Shuttle', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_12px_rgba(248,250,252,0.45)]"><path d="M50 10 C60 22 60 44 60 86 L40 86 C40 44 40 22 50 10 Z" fill="#f8fafc" stroke="#64748b" stroke-width="2"/><polygon points="40,46 10,86 40,86" fill="#e2e8f0" stroke="#475569" stroke-width="2"/><polygon points="60,46 90,86 60,86" fill="#e2e8f0" stroke="#475569" stroke-width="2"/><path d="M44 26 Q50 22 56 26 L54 32 L46 32 Z" fill="#0f172a"/><rect x="48" y="62" width="4" height="24" fill="#1e293b"/></svg>` },
+      { id: 'solar', name: 'Helios Gold', svg: `<svg viewBox="0 0 100 110" class="w-full h-full drop-shadow-[0_0_14px_rgba(251,191,36,0.65)]"><polygon points="50,6 64,34 62,84 38,84 36,34" fill="#fbbf24" stroke="#fef3c7" stroke-width="2"/><polygon points="36,48 16,84 38,78" fill="#b45309"/><polygon points="64,48 84,84 62,78" fill="#b45309"/><polygon points="50,26 57,42 43,42" fill="#1e293b"/><rect x="41" y="84" width="18" height="10" fill="#451a03"/></svg>` }
+    ];
+
+    function parseDict(str) {
+      const map = {};
+      str.split(',').forEach(entry => {
+        const [k, v] = entry.split(':');
+        if (k && v) map[k.trim()] = Number(v);
+      });
+      return map;
+    }
+
+    const RAW_QUESTIONS = [
+      ['wild_animal', 'OA 9 · Fauna', 'Name a wild animal', 'Escribe en inglés el nombre de un animal salvaje.', 'lion:14,tiger:14,bear:14,wolf:15,fox:15,zebra:15,monkey:15,elephant:16,giraffe:16,snake:15,shark:15,eagle:16,deer:16,cheetah:20,leopard:20,panther:20,jaguar:20,gorilla:19,chimpanzee:22,crocodile:20,alligator:20,rhinoceros:23,hippopotamus:24,kangaroo:19,koala:18,penguin:18,dolphin:18,whale:17,octopus:19,flamingo:20,ostrich:21,hyena:21,buffalo:20,bison:20,wolverine:25,platypus:26,chameleon:25,armadillo:24,porcupine:25,hedgehog:23,lynx:24,ocelot:26,cassowary:28,narwhal:27,albatross:26,rabbit:15,hare:18,squirrel:18,owl:16,hawk:18,falcon:19,seal:17,walrus:20,moose:19,elk:19,raccoon:18,badger:20,otter:19,beaver:19,bat:15,frog:14,turtle:15,tortoise:19,lizard:17,iguana:19,cobra:19,python:19,scorpion:19,tarantula:21,piranha:20,stingray:21,jellyfish:19,starfish:18,crab:15,lobster:18,camel:16,llama:17,alpaca:18,panda:16,sloth:19,anteater:22,tapir:23,capybara:22,meerkat:21,lemur:21,baboon:20,orangutan:22,gazelle:21,antelope:21,wildebeest:24,warthog:22,vulture:20,pelican:19,toucan:19,parrot:16,macaw:21,hummingbird:21,woodpecker:21,stork:20,crane:19,swan:17'],
+      ['farm_pet_animal', 'OA 9 · Animales', 'Name a farm animal or pet', 'Escribe en inglés un animal de granja o mascota doméstica.', 'dog:12,cat:12,cow:13,pig:13,horse:14,sheep:14,chicken:14,duck:14,rabbit:15,fish:13,bird:13,hamster:18,guinea:19,parrot:18,turtle:18,goat:17,donkey:18,rooster:19,turkey:18,mouse:16,ferret:21,canary:20,chinchilla:24,stallion:24,foal:23,calf:21,lamb:20,piglet:21,tortoise:23,budgie:25,puppy:15,kitten:15,pony:17,hen:16,chick:16,goose:17,geese:18,ox:19,oxen:20,bull:17,mule:19,llama:18,alpaca:19,goldfish:17,gerbil:21,hedgehog:20,gecko:20,iguana:20'],
+      ['fruit', 'OA 8 · Alimentación', 'Name a fruit', 'Escribe en inglés el nombre de una fruta.', 'apple:12,banana:12,orange:12,grape:14,pear:14,lemon:14,melon:15,mango:15,peach:15,cherry:15,kiwi:15,strawberry:18,pineapple:18,watermelon:18,blueberry:19,raspberry:20,blackberry:20,coconut:18,papaya:19,plum:18,apricot:21,lime:16,avocado:18,pomegranate:25,tangerine:23,mandarin:22,passionfruit:25,grapefruit:22,cranberry:22,nectarine:23,persimmon:26,fig:20,guava:22,lychee:25,dragonfruit:26,tomato:15,olive:17,date:18,raisin:18,prune:19,cantaloupe:22,honeydew:22,clementine:22,kumquat:25,starfruit:24,jackfruit:24,durian:24,quince:24,mulberry:22,gooseberry:23,elderberry:23,currant:22,plantain:21'],
+      ['vegetable', 'OA 8 · Alimentación', 'Name a vegetable', 'Escribe en inglés el nombre de una verdura u hortaliza.', 'carrot:14,potato:14,tomato:14,onion:14,lettuce:15,corn:14,pepper:15,pea:15,bean:15,broccoli:18,spinach:19,cucumber:18,cabbage:19,garlic:17,mushroom:18,pumpkin:18,celery:19,radish:20,zucchini:21,eggplant:20,cauliflower:23,asparagus:24,artichoke:25,beetroot:23,brussels:24,leek:22,turnip:23,parsnip:25,kale:21,fennel:24,sweetpotato:19,yam:19,squash:19,bellpepper:19,chili:18,jalapeno:20,okra:22,chard:22,arugula:22,watercress:23,endive:23,chicory:23,shallot:22,scallion:22,chive:21,ginger:19,rhubarb:22,cassava:22,lentil:19,chickpea:20'],
+      ['healthy_food', 'OA 8 · Vida Saludable', 'Name a healthy food or drink', 'Escribe un alimento o bebida saludable en inglés.', 'water:12,milk:13,salad:14,fish:14,egg:13,rice:13,soup:14,tea:14,juice:14,fruit:13,yogurt:18,oatmeal:20,chicken:16,salmon:19,tuna:18,almond:20,walnut:21,honey:17,cheese:16,bread:14,cereal:16,smoothie:21,quinoa:24,lentils:22,chickpeas:23,tofu:21,hummus:22,granola:20,electrolyte:25,protein:22,apple:14,banana:14,orange:14,broccoli:18,carrot:16,spinach:19,avocado:19,berries:18,strawberry:18,blueberry:19,nuts:17,seeds:18,beans:17,turkey:18,steak:17,beef:16,pasta:15,noodles:16,porridge:21,kefir:23,kombucha:23,matcha:22,herbaltea:20,coconutwater:21,oliveoil:20'],
+      ['sport', 'OA 9 · Deportes', 'Name a sport', 'Escribe en inglés el nombre de un deporte.', 'soccer:13,football:13,tennis:13,basketball:14,baseball:14,swimming:15,running:14,golf:14,boxing:15,cycling:16,volleyball:18,karate:18,judo:18,surfing:18,skiing:18,skating:18,hockey:18,rugby:18,climbing:19,gymnastics:20,badminton:22,fencing:23,archery:23,triathlon:25,rowing:22,wrestling:22,taekwondo:22,equestrian:26,athletics:22,snowboarding:21,handball:19,softball:19,cricket:19,polo:20,waterpolo:21,diving:19,kayaking:21,canoeing:21,sailing:19,windsurfing:21,skateboarding:19,rollerblading:21,jogging:16,sprinting:20,marathon:21,weightlifting:21,crossfit:20,yoga:17,pilates:18,kickboxing:20,mma:19,bowling:18,billiards:20,darts:19,pingpong:18,tabletennis:20,squash:21,lacrosse:22,curling:22,bobsled:23'],
+      ['hobby', 'OA 9 · Tiempo Libre', 'Name a hobby or free-time activity', 'Escribe en inglés un pasatiempo o actividad de tiempo libre.', 'reading:14,gaming:14,drawing:15,painting:15,dancing:14,singing:14,cooking:15,fishing:15,camping:16,hiking:16,photography:20,gardening:19,knitting:21,baking:18,traveling:18,collecting:20,writing:17,sewing:20,chess:19,yoga:17,origami:23,calligraphy:25,sculpting:24,birdwatching:25,stargazing:25,woodworking:24,podcasting:23,journaling:22,music:14,movies:14,shopping:15,swimming:16,running:15,cycling:17,skating:17,surfing:18,skiing:18,climbing:19,meditating:20,exercising:18,workout:18,crafting:20,pottery:22,embroidery:23,crocheting:23,cosplay:21,streaming:20,blogging:20,coding:20,programming:21,puzzles:18,boardgames:19,karaoke:19,acting:19,theater:19,magic:19,juggling:21'],
+      ['profession', 'OA 9 · Ocupaciones', 'Name a job or profession', 'Escribe en inglés una profesión u oficio.', 'doctor:13,teacher:13,nurse:14,police:14,chef:14,pilot:15,singer:14,actor:14,farmer:15,driver:14,engineer:18,scientist:19,lawyer:19,dentist:18,firefighter:19,mechanic:19,artist:17,writer:17,soldier:18,waiter:17,builder:17,architect:23,astronaut:22,journalist:22,surgeon:24,pharmacist:24,veterinarian:24,psychologist:25,accountant:22,electrician:21,plumber:20,actress:16,baker:17,barber:18,hairdresser:19,stylist:19,designer:19,programmer:21,developer:21,biologist:22,chemist:22,physicist:23,geologist:23,astronomer:23,archaeologist:25,historian:22,economist:22,banker:19,manager:18,secretary:19,receptionist:20,cashier:18,guard:17,detective:21,judge:20,politician:21,diplomat:23,translator:22,interpreter:23,librarian:21,coach:18,athlete:19,referee:20,musician:19,dancer:17,photographer:20,director:19,producer:20,editor:20,reporter:20,carpenter:20,painter:18,gardener:19,butcher:20,tailor:21,fisherman:19,sailor:19,captain:19,paramedic:22'],
+      ['school_subject', 'OA 1 · Escuela', 'Name a school subject', 'Escribe en inglés una asignatura escolar.', 'math:13,english:13,science:14,history:14,art:13,music:13,spanish:14,sports:14,biology:18,chemistry:19,physics:19,geography:18,technology:18,literature:19,computing:18,drama:18,mathematics:21,philosophy:24,economics:23,psychology:24,astronomy:23,robotics:21,civics:22,sociology:24,maths:14,pe:14,physicaleducation:18,ict:17,computerscience:21,coding:19,programming:20,french:16,german:17,italian:17,portuguese:18,chinese:18,japanese:18,latin:20,religion:18,ethics:20,health:17,nutrition:19,geology:21,ecology:21,algebra:21,geometry:21,calculus:23,statistics:22,accounting:21,business:19,law:19,politics:20,anthropology:24,archaeology:24,journalism:21,photography:20,dance:16,theater:18,choir:19,band:17'],
+      ['school_object', 'OA 1 · Útiles', 'Name a classroom object', 'Escribe en inglés un útil escolar u objeto de la sala.', 'pen:12,pencil:12,book:12,desk:13,chair:13,ruler:14,eraser:15,bag:13,paper:13,board:14,notebook:17,backpack:17,scissors:18,sharpener:19,marker:17,glue:16,calculator:19,folder:18,dictionary:19,whiteboard:20,chalkboard:20,highlighter:22,stapler:21,protractor:25,compass:22,binder:21,clipboard:22,globe:20,crayon:17,paintbrush:19,paint:16,textbook:18,workbook:18,notepad:18,sticky:18,tape:17,paperclip:20,puncher:21,laptop:18,computer:17,tablet:18,projector:20,screen:18,speaker:18,clock:16,calendar:18,map:16,poster:17,bookshelf:20,locker:19,trashcan:19,bin:17,pencilcase:19,lunchbox:19,bottle:16'],
+      ['weather', 'OA 9 · Clima', 'Name a weather word', 'Escribe en inglés una palabra relacionada con el clima o el tiempo.', 'sunny:13,rainy:13,cloudy:14,windy:14,snowy:14,hot:12,cold:12,warm:13,rain:13,snow:13,stormy:18,foggy:18,freezing:19,humid:19,thunder:18,lightning:19,rainbow:18,hail:20,breeze:19,overcast:22,hurricane:23,tornado:22,blizzard:24,drizzle:23,drought:24,monsoon:25,sleet:24,mist:19,frost:20,heatwave:22,sun:13,wind:13,cloud:14,storm:16,ice:15,icy:16,wet:14,dry:14,cool:14,chilly:18,mild:18,clear:16,bright:16,dark:15,fog:17,misty:19,frosty:20,degrees:18,temperature:19,forecast:20,climate:19,season:17,flood:20,cyclone:23,typhoon:24,gale:22,gust:21,downpour:23,shower:18,puddle:18'],
+      ['season_month', 'OA 1 · Calendario', 'Name a season or month of the year', 'Escribe en inglés una estación del año o un mes.', 'summer:14,winter:14,spring:14,autumn:16,fall:15,january:17,february:18,march:16,april:16,may:15,june:16,july:16,august:17,september:18,october:17,november:18,december:18,equinox:25,solstice:25,monsoon:23,monday:15,tuesday:16,wednesday:17,thursday:16,friday:15,saturday:16,sunday:15,weekend:16,weekday:17,month:15,year:14
